@@ -6,7 +6,7 @@ import HeroSection from '@/components/HeroSection';
 import GameSearch from '@/components/GameSearch';
 import CategoryTabs from '@/components/CategoryTabs';
 import GameGrid from '@/components/GameGrid';
-import PromoBanner from '@/components/PromoBanner';
+import FloatingRedeemBanner from '@/components/FloatingRedeemBanner';
 import FeatureSection from '@/components/FeatureSection';
 import TopupModal from '@/components/TopupModal';
 import TestimonialSection from '@/components/TestimonialSection';
@@ -75,6 +75,9 @@ export default function Home() {
     <div className="min-h-screen bg-[#FFF1F5]">
       {/* Floating decorations */}
       <FloatingDecorations />
+
+      {/* Floating Redeem Banner - appears on first visit */}
+      <FloatingRedeemBanner />
 
       {/* Header */}
       <Header
@@ -149,9 +152,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Promo Banner */}
-        <PromoBanner />
-
         {/* Feature Section */}
         <FeatureSection />
 
@@ -161,7 +161,7 @@ export default function Home() {
         </div>
 
         {/* Redeem Section */}
-        <div ref={redeemRef}>
+        <div ref={redeemRef} id="redeem-section">
           <RedeemSection />
         </div>
 
