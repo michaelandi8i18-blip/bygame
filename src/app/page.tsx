@@ -17,6 +17,7 @@ import LoginModal from '@/components/LoginModal';
 import HistoryPage from '@/components/HistoryPage';
 import MessagePanel from '@/components/MessagePanel';
 import AdminPanel from '@/components/AdminPanel';
+import HelpPage from '@/components/HelpPage';
 import { games } from '@/data/games';
 import { Game, Category } from '@/types';
 
@@ -34,6 +35,7 @@ export default function Home() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const redeemRef = useRef<HTMLDivElement>(null);
 
   const { isLoggedIn, purchases, user } = useZustandStore();
@@ -88,6 +90,7 @@ export default function Home() {
         onOpenLogin={() => setIsLoginOpen(true)}
         onOpenAdmin={() => setIsAdminOpen(true)}
         onOpenRedeem={scrollToRedeem}
+        onOpenHelp={() => setIsHelpOpen(true)}
       />
 
       {/* Search overlay */}
@@ -222,6 +225,7 @@ export default function Home() {
       <HistoryPage isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
       <MessagePanel isOpen={isMessagesOpen} onClose={() => setIsMessagesOpen(false)} />
       <AdminPanel isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
+      <HelpPage isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </div>
   );
 }

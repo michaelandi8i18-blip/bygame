@@ -12,6 +12,7 @@ interface HeaderProps {
   onOpenLogin: () => void;
   onOpenAdmin: () => void;
   onOpenRedeem: () => void;
+  onOpenHelp: () => void;
 }
 
 export default function Header({
@@ -22,6 +23,7 @@ export default function Header({
   onOpenLogin,
   onOpenAdmin,
   onOpenRedeem,
+  onOpenHelp,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, isLoggedIn, logout, getUnreadCount } = useStore();
@@ -47,7 +49,7 @@ export default function Header({
               { label: 'Home', action: () => useStore.getState().setCurrentPage('home'), icon: '🏠' },
               { label: 'Redeem', action: onOpenRedeem, icon: '🎁' },
               { label: 'Testimoni', action: () => document.getElementById('testimonials')?.scrollIntoView({ behavior: 'smooth' }), icon: '💬' },
-              { label: 'Bantuan', action: () => {}, icon: '💬' },
+              { label: 'Bantuan', action: onOpenHelp, icon: '🤝' },
             ].map((item) => (
               <button
                 key={item.label}
@@ -182,7 +184,7 @@ export default function Header({
               <>
                 <MobileNavItem icon="🏠" label="Home" onClick={() => { useStore.getState().setCurrentPage('home'); setMobileMenuOpen(false); }} />
                 <MobileNavItem icon="🎁" label="Redeem" onClick={() => { onOpenRedeem(); setMobileMenuOpen(false); }} />
-                <MobileNavItem icon="💬" label="Bantuan" onClick={() => setMobileMenuOpen(false)} />
+                <MobileNavItem icon="🤝" label="Bantuan" onClick={() => { onOpenHelp(); setMobileMenuOpen(false); }} />
                 <div className="mt-3 pt-3 border-t border-pink-100">
                   <button
                     onClick={() => { onOpenLogin(); setMobileMenuOpen(false); }}
