@@ -31,11 +31,38 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
     let success: boolean;
     if (isRegister) {
-      success = register(name, email, password);
-      if (!success) setError('Gagal mendaftar. Pastikan semua field terisi.');
+      // Validate fields before calling register
+      if (!name.trim()) {
+        setError('Nama tidak boleh kosong.');
+        setIsLoading(false);
+        return;
+      }
+      if (!email.trim() || !email.includes('@')) {
+        setError('Masukkan email yang valid.');
+        setIsLoading(false);
+        return;
+      }
+      if (password.length < 3) {
+        setError('Password minimal 3 karakter.');
+        setIsLoading(false);
+        return;
+      }
+      success = register(name.trim(), email.trim(), password);
+      if (!success) setError('Email sudah terdaftar. Silakan masuk atau gunakan email lain.');
     } else {
-      success = login(email, password);
-      if (!success) setError('Login gagal. Periksa email dan password.');
+      // Validate fields before calling login
+      if (!email.trim() || !email.includes('@')) {
+        setError('Masukkan email yang valid.');
+        setIsLoading(false);
+        return;
+      }
+      if (password.length < 3) {
+        setError('Password minimal 3 karakter.');
+        setIsLoading(false);
+        return;
+      }
+      success = login(email.trim(), password);
+      if (!success) setError('Email atau password salah. Pastikan sudah terdaftar.');
     }
 
     setIsLoading(false);
@@ -121,9 +148,14 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             </div>
           )}
 
+          {isRegister && (
+            <p className="text-xs text-pink-400 text-center">
+              📝 Data akun akan tersimpan. Gunakan email & password yang sama saat login.
+            </p>
+          )}
           {!isRegister && (
             <p className="text-xs text-pink-400 text-center">
-              💡 Masukkan email apapun & password min. 3 karakter untuk demo. Gunakan email yang mengandung &ldquo;admin&rdquo; untuk akses admin.
+              💡 Belum punya akun? Daftar dulu di tab &ldquo;Daftar&rdquo;. Untuk akses admin, login dengan email yang mengandung &ldquo;admin&rdquo; dan password &ldquo;admin123&rdquo;.
             </p>
           )}
 

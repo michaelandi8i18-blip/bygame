@@ -206,21 +206,46 @@ export const useStore = create<AppState>((set, get) => ({
   isLoggedIn: false,
 
   login: (email: string, password: string) => {
-    // Simulated login
     if (!email || !password || password.length < 3) return false;
 
-    const isAdmin = email.includes('admin');
-    const user: User = {
-      id: `user-${Date.now()}`,
-      name: isAdmin ? 'Admin BYgame' : email.split('@')[0],
-      email,
-      avatar: isAdmin ? '👑' : '🎮',
-      balance: 0,
-      role: isAdmin ? 'admin' : 'user',
-    };
-
-    // Check if user has existing data in localStorage
+    // Validate credentials against registered users in localStorage
     if (typeof window !== 'undefined') {
+      const registeredUsers = localStorage.getItem('bygame_registered_users');
+      const users: Array<{ email: string; password: string; name: string; role: 'user' | 'admin' }> = registeredUsers ? JSON.parse(registeredUsers) : [];
+
+      // Check admin special access
+      const isAdmin = email.toLowerCase().includes('admin');
+      if (isAdmin && password === 'admin123') {
+        const user: User = {
+          id: `user-${Date.now()}`,
+          name: 'Admin BYgame',
+          email,
+          avatar: '👑',
+          balance: 0,
+          role: 'admin',
+        };
+        set({ user, isLoggedIn: true, purchases: [...seedPurchases] });
+        return true;
+      }
+
+      // Find matching registered user
+      const matchedUser = users.find(
+        (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
+      );
+
+      if (!matchedUser) {
+        return false; // Wrong email or password
+      }
+
+      const user: User = {
+        id: `user-${Date.now()}`,
+        name: matchedUser.name,
+        email: matchedUser.email,
+        avatar: '🎮',
+        balance: 0,
+        role: matchedUser.role,
+      };
+
       const savedPurchases = localStorage.getItem(`bygame_purchases_${email}`);
       const savedBalance = localStorage.getItem(`bygame_balance_${email}`);
 
@@ -230,27 +255,43 @@ export const useStore = create<AppState>((set, get) => ({
         purchases: savedPurchases ? JSON.parse(savedPurchases) : [...seedPurchases],
         ...(savedBalance ? { user: { ...user, balance: parseFloat(savedBalance) } } : {}),
       });
-    } else {
-      set({ user, isLoggedIn: true, purchases: [...seedPurchases] });
+      return true;
     }
-
-    return true;
+    return false;
   },
 
   register: (name: string, email: string, password: string) => {
     if (!name || !email || !password || password.length < 3) return false;
 
-    const user: User = {
-      id: `user-${Date.now()}`,
-      name,
-      email,
-      avatar: '🎮',
-      balance: 0,
-      role: 'user',
-    };
+    if (typeof window !== 'undefined') {
+      const registeredUsers = localStorage.getItem('bygame_registered_users');
+      const users: Array<{ email: string; password: string; name: string; role: 'user' | 'admin' }> = registeredUsers ? JSON.parse(registeredUsers) : [];
 
-    set({ user, isLoggedIn: true });
-    return true;
+      // Check if email already registered
+      const existingUser = users.find(
+        (u) => u.email.toLowerCase() === email.toLowerCase()
+      );
+      if (existingUser) {
+        return false; // Email already taken
+      }
+
+      // Save new user credentials
+      users.push({ email, password, name, role: 'user' });
+      localStorage.setItem('bygame_registered_users', JSON.stringify(users));
+
+      const user: User = {
+        id: `user-${Date.now()}`,
+        name,
+        email,
+        avatar: '🎮',
+        balance: 0,
+        role: 'user',
+      };
+
+      set({ user, isLoggedIn: true });
+      return true;
+    }
+    return false;
   },
 
   logout: () => {
