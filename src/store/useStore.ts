@@ -72,51 +72,54 @@ export interface RedeemRequest {
 
 export type AppPage = 'home' | 'history' | 'redeem' | 'messages' | 'admin';
 
-// ============ STORE ============
+// ============ STORAGE HELPERS ============
 
-interface AppState {
-  // User
-  user: User | null;
-  isLoggedIn: boolean;
-  login: (email: string, password: string) => boolean;
-  register: (name: string, email: string, password: string) => boolean;
-  logout: () => void;
-
-  // Navigation
-  currentPage: AppPage;
-  setCurrentPage: (page: AppPage) => void;
-
-  // Purchases
-  purchases: Purchase[];
-  addPurchase: (purchase: Omit<Purchase, 'id' | 'createdAt' | 'reviewed' | 'status'>) => Purchase;
-  updatePurchaseStatus: (purchaseId: string, status: Purchase['status']) => void;
-  getUserPurchases: () => Purchase[];
-
-  // Reviews
-  reviews: Review[];
-  addReview: (purchaseId: string, rating: number, comment: string) => boolean;
-  getGameReviews: (gameId: string) => Review[];
-  getPublicReviews: () => Review[];
-
-  // Messages
-  messages: Message[];
-  addMessage: (message: Omit<Message, 'id' | 'createdAt' | 'isRead'>) => void;
-  markMessageRead: (messageId: string) => void;
-  getUserMessages: () => Message[];
-  getUnreadCount: () => number;
-
-  // Redeem
-  redeemRequests: RedeemRequest[];
-  addRedeemRequest: (request: Omit<RedeemRequest, 'id' | 'createdAt' | 'status' | 'adminNote'>) => boolean;
-  adminApproveRedeem: (requestId: string, approved: boolean, note: string) => void;
-  getRedeemRequests: () => RedeemRequest[];
-  getUserRedeemRequests: () => RedeemRequest[];
-
-  // Balance
-  addBalance: (amount: number) => void;
+// Registered users stored in localStorage: { id, email, password, name, role }[]
+interface RegisteredUser {
+  id: string;
+  email: string;
+  password: string;
+  name: string;
+  role: 'user' | 'admin';
 }
 
-// Seed data
+function getRegisteredUsers(): RegisteredUser[] {
+  if (typeof window === 'undefined') return [];
+  const data = localStorage.getItem('bygame_registered_users');
+  return data ? JSON.parse(data) : [];
+}
+
+function saveRegisteredUsers(users: RegisteredUser[]) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('bygame_registered_users', JSON.stringify(users));
+}
+
+// Global data persistence (all users combined)
+function loadGlobalData<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  const data = localStorage.getItem(key);
+  return data ? JSON.parse(data) : fallback;
+}
+
+function saveGlobalData<T>(key: string, data: T) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+// Per-user data persistence
+function loadUserData<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  const data = localStorage.getItem(key);
+  return data ? JSON.parse(data) : fallback;
+}
+
+function saveUserData(key: string, data: unknown) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+// ============ SEED DATA ============
+
 const seedReviews: Review[] = [
   {
     id: 'rev-seed-1',
@@ -200,110 +203,243 @@ const seedPurchases: Purchase[] = [
   },
 ];
 
+// ============ STORE ============
+
+interface AppState {
+  // User
+  user: User | null;
+  isLoggedIn: boolean;
+  login: (email: string, password: string) => boolean;
+  register: (name: string, email: string, password: string) => boolean;
+  logout: () => void;
+
+  // Navigation
+  currentPage: AppPage;
+  setCurrentPage: (page: AppPage) => void;
+
+  // Purchases
+  purchases: Purchase[];
+  addPurchase: (purchase: Omit<Purchase, 'id' | 'createdAt' | 'reviewed' | 'status'>) => Purchase;
+  updatePurchaseStatus: (purchaseId: string, status: Purchase['status']) => void;
+  getUserPurchases: () => Purchase[];
+
+  // Reviews
+  reviews: Review[];
+  addReview: (purchaseId: string, rating: number, comment: string) => boolean;
+  getGameReviews: (gameId: string) => Review[];
+  getPublicReviews: () => Review[];
+
+  // Messages
+  messages: Message[];
+  addMessage: (message: Omit<Message, 'id' | 'createdAt' | 'isRead'>) => void;
+  markMessageRead: (messageId: string) => void;
+  getUserMessages: () => Message[];
+  getUnreadCount: () => number;
+
+  // Redeem
+  redeemRequests: RedeemRequest[];
+  addRedeemRequest: (request: Omit<RedeemRequest, 'id' | 'createdAt' | 'status' | 'adminNote'>) => boolean;
+  adminApproveRedeem: (requestId: string, approved: boolean, note: string) => void;
+  getRedeemRequests: () => RedeemRequest[];
+  getUserRedeemRequests: () => RedeemRequest[];
+
+  // Balance
+  addBalance: (amount: number) => void;
+}
+
+// Load initial data from localStorage
+const initialPurchases = loadGlobalData<Purchase[]>('bygame_purchases', seedPurchases);
+const initialReviews = loadGlobalData<Review[]>('bygame_reviews', seedReviews);
+const initialMessages = loadGlobalData<Message[]>('bygame_messages', []);
+const initialRedeemRequests = loadGlobalData<RedeemRequest[]>('bygame_redeem_requests', []);
+
+// Try to restore last session
+let initialUser: User | null = null;
+let initialLoggedIn = false;
+if (typeof window !== 'undefined') {
+  const lastSession = localStorage.getItem('bygame_last_session');
+  if (lastSession) {
+    try {
+      const session = JSON.parse(lastSession);
+      const users = getRegisteredUsers();
+      const matched = users.find((u) => u.id === session.userId);
+      if (matched) {
+        const balance = loadUserData<number>(`bygame_balance_${matched.email}`, 0);
+        initialUser = {
+          id: matched.id,
+          name: matched.name,
+          email: matched.email,
+          avatar: matched.role === 'admin' ? '👑' : '🎮',
+          balance,
+          role: matched.role,
+        };
+        initialLoggedIn = true;
+      }
+    } catch {
+      localStorage.removeItem('bygame_last_session');
+    }
+  }
+}
+
 export const useStore = create<AppState>((set, get) => ({
   // ---- USER ----
-  user: null,
-  isLoggedIn: false,
+  user: initialUser,
+  isLoggedIn: initialLoggedIn,
 
   login: (email: string, password: string) => {
     if (!email || !password || password.length < 3) return false;
+    if (typeof window === 'undefined') return false;
 
-    // Validate credentials against registered users in localStorage
-    if (typeof window !== 'undefined') {
-      const registeredUsers = localStorage.getItem('bygame_registered_users');
-      const users: Array<{ email: string; password: string; name: string; role: 'user' | 'admin' }> = registeredUsers ? JSON.parse(registeredUsers) : [];
+    // Check admin special access
+    const isAdmin = email.toLowerCase().includes('admin');
+    if (isAdmin && password === 'admin123') {
+      const users = getRegisteredUsers();
+      let adminUser = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+      let adminId: string;
 
-      // Check admin special access
-      const isAdmin = email.toLowerCase().includes('admin');
-      if (isAdmin && password === 'admin123') {
-        const user: User = {
-          id: `user-${Date.now()}`,
-          name: 'Admin BYgame',
-          email,
-          avatar: '👑',
-          balance: 0,
-          role: 'admin',
-        };
-        set({ user, isLoggedIn: true, purchases: [...seedPurchases] });
-        return true;
-      }
-
-      // Find matching registered user
-      const matchedUser = users.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-      );
-
-      if (!matchedUser) {
-        return false; // Wrong email or password
+      if (!adminUser) {
+        // Auto-register admin if not exists
+        adminId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+        adminUser = { id: adminId, email, password, name: 'Admin BYgame', role: 'admin' };
+        users.push(adminUser);
+        saveRegisteredUsers(users);
+      } else {
+        adminId = adminUser.id;
       }
 
       const user: User = {
-        id: `user-${Date.now()}`,
-        name: matchedUser.name,
-        email: matchedUser.email,
-        avatar: '🎮',
-        balance: 0,
-        role: matchedUser.role,
+        id: adminId,
+        name: adminUser!.name,
+        email,
+        avatar: '👑',
+        balance: loadUserData<number>(`bygame_balance_${email}`, 0),
+        role: 'admin',
       };
 
-      const savedPurchases = localStorage.getItem(`bygame_purchases_${email}`);
-      const savedBalance = localStorage.getItem(`bygame_balance_${email}`);
-
+      localStorage.setItem('bygame_last_session', JSON.stringify({ userId: user.id }));
       set({
         user,
         isLoggedIn: true,
-        purchases: savedPurchases ? JSON.parse(savedPurchases) : [...seedPurchases],
-        ...(savedBalance ? { user: { ...user, balance: parseFloat(savedBalance) } } : {}),
+        purchases: initialPurchases,
+        reviews: initialReviews,
+        messages: initialMessages,
+        redeemRequests: initialRedeemRequests,
       });
       return true;
     }
-    return false;
+
+    // Find matching registered user
+    const users = getRegisteredUsers();
+    const matchedUser = users.find(
+      (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
+    );
+
+    if (!matchedUser) {
+      return false; // Wrong email or password
+    }
+
+    // Use the STABLE ID from registration
+    const user: User = {
+      id: matchedUser.id,
+      name: matchedUser.name,
+      email: matchedUser.email,
+      avatar: '🎮',
+      balance: loadUserData<number>(`bygame_balance_${matchedUser.email}`, 0),
+      role: matchedUser.role,
+    };
+
+    // Restore all global data + balance
+    const savedPurchases = loadGlobalData<Purchase[]>('bygame_purchases', seedPurchases);
+    const savedReviews = loadGlobalData<Review[]>('bygame_reviews', seedReviews);
+    const savedMessages = loadGlobalData<Message[]>('bygame_messages', []);
+    const savedRedeemRequests = loadGlobalData<RedeemRequest[]>('bygame_redeem_requests', []);
+
+    // Save session so we can restore on page refresh
+    localStorage.setItem('bygame_last_session', JSON.stringify({ userId: user.id }));
+
+    set({
+      user,
+      isLoggedIn: true,
+      purchases: savedPurchases,
+      reviews: savedReviews,
+      messages: savedMessages,
+      redeemRequests: savedRedeemRequests,
+    });
+    return true;
   },
 
   register: (name: string, email: string, password: string) => {
     if (!name || !email || !password || password.length < 3) return false;
+    if (typeof window === 'undefined') return false;
 
-    if (typeof window !== 'undefined') {
-      const registeredUsers = localStorage.getItem('bygame_registered_users');
-      const users: Array<{ email: string; password: string; name: string; role: 'user' | 'admin' }> = registeredUsers ? JSON.parse(registeredUsers) : [];
+    const users = getRegisteredUsers();
 
-      // Check if email already registered
-      const existingUser = users.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase()
-      );
-      if (existingUser) {
-        return false; // Email already taken
-      }
-
-      // Save new user credentials
-      users.push({ email, password, name, role: 'user' });
-      localStorage.setItem('bygame_registered_users', JSON.stringify(users));
-
-      const user: User = {
-        id: `user-${Date.now()}`,
-        name,
-        email,
-        avatar: '🎮',
-        balance: 0,
-        role: 'user',
-      };
-
-      set({ user, isLoggedIn: true });
-      return true;
+    // Check if email already registered
+    const existingUser = users.find(
+      (u) => u.email.toLowerCase() === email.toLowerCase()
+    );
+    if (existingUser) {
+      return false; // Email already taken
     }
-    return false;
+
+    // Generate a STABLE user ID — saved permanently, never changes
+    const stableId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
+    // Save new user credentials with stable ID
+    users.push({ id: stableId, email, password, name, role: 'user' });
+    saveRegisteredUsers(users);
+
+    const user: User = {
+      id: stableId,
+      name,
+      email,
+      avatar: '🎮',
+      balance: 0,
+      role: 'user',
+    };
+
+    // Save session
+    localStorage.setItem('bygame_last_session', JSON.stringify({ userId: user.id }));
+
+    // Restore all global data
+    const savedPurchases = loadGlobalData<Purchase[]>('bygame_purchases', seedPurchases);
+    const savedReviews = loadGlobalData<Review[]>('bygame_reviews', seedReviews);
+    const savedMessages = loadGlobalData<Message[]>('bygame_messages', []);
+    const savedRedeemRequests = loadGlobalData<RedeemRequest[]>('bygame_redeem_requests', []);
+
+    set({
+      user,
+      isLoggedIn: true,
+      purchases: savedPurchases,
+      reviews: savedReviews,
+      messages: savedMessages,
+      redeemRequests: savedRedeemRequests,
+    });
+    return true;
   },
 
   logout: () => {
-    const { user } = get();
+    const { user, purchases, reviews, messages, redeemRequests } = get();
+
     if (user && typeof window !== 'undefined') {
-      localStorage.setItem(`bygame_purchases_${user.email}`, JSON.stringify(get().purchases));
-      localStorage.setItem(`bygame_balance_${user.email}`, String(user.balance));
+      // Save all data to localStorage before clearing
+      saveGlobalData('bygame_purchases', purchases);
+      saveGlobalData('bygame_reviews', reviews);
+      saveGlobalData('bygame_messages', messages);
+      saveGlobalData('bygame_redeem_requests', redeemRequests);
+      saveUserData(`bygame_balance_${user.email}`, user.balance);
+      localStorage.removeItem('bygame_last_session');
     }
+
     set({
       user: null,
       isLoggedIn: false,
       currentPage: 'home',
+      // Reset in-memory state to seed data
+      purchases: [...seedPurchases],
+      reviews: [...seedReviews],
+      messages: [],
+      redeemRequests: [],
     });
   },
 
@@ -312,7 +448,7 @@ export const useStore = create<AppState>((set, get) => ({
   setCurrentPage: (page) => set({ currentPage: page }),
 
   // ---- PURCHASES ----
-  purchases: [...seedPurchases],
+  purchases: initialLoggedIn ? initialPurchases : [...seedPurchases],
 
   addPurchase: (purchase) => {
     const newPurchase: Purchase = {
@@ -324,27 +460,27 @@ export const useStore = create<AppState>((set, get) => ({
     };
     set((state) => {
       const purchases = [...state.purchases, newPurchase];
-      if (state.user && typeof window !== 'undefined') {
-        localStorage.setItem(`bygame_purchases_${state.user.email}`, JSON.stringify(purchases));
-      }
+      saveGlobalData('bygame_purchases', purchases);
       return { purchases };
     });
 
     // Simulate status changes
     setTimeout(() => {
-      set((state) => ({
-        purchases: state.purchases.map((p) =>
-          p.id === newPurchase.id ? { ...p, status: 'processing' } : p
-        ),
-      }));
+      const state = get();
+      const updated = state.purchases.map((p) =>
+        p.id === newPurchase.id ? { ...p, status: 'processing' as const } : p
+      );
+      saveGlobalData('bygame_purchases', updated);
+      set({ purchases: updated });
     }, 3000);
 
     setTimeout(() => {
-      set((state) => ({
-        purchases: state.purchases.map((p) =>
-          p.id === newPurchase.id ? { ...p, status: 'success' } : p
-        ),
-      }));
+      const state = get();
+      const updated = state.purchases.map((p) =>
+        p.id === newPurchase.id ? { ...p, status: 'success' as const } : p
+      );
+      saveGlobalData('bygame_purchases', updated);
+      set({ purchases: updated });
       get().addMessage({
         userId: purchase.userId,
         from: 'system',
@@ -358,11 +494,13 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   updatePurchaseStatus: (purchaseId, status) => {
-    set((state) => ({
-      purchases: state.purchases.map((p) =>
+    set((state) => {
+      const purchases = state.purchases.map((p) =>
         p.id === purchaseId ? { ...p, status } : p
-      ),
-    }));
+      );
+      saveGlobalData('bygame_purchases', purchases);
+      return { purchases };
+    });
   },
 
   getUserPurchases: () => {
@@ -372,7 +510,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // ---- REVIEWS ----
-  reviews: [...seedReviews],
+  reviews: initialLoggedIn ? initialReviews : [...seedReviews],
 
   addReview: (purchaseId, rating, comment) => {
     const { user, purchases, reviews } = get();
@@ -394,12 +532,18 @@ export const useStore = create<AppState>((set, get) => ({
       createdAt: new Date().toISOString(),
     };
 
-    set((state) => ({
-      reviews: [...state.reviews, newReview],
-      purchases: state.purchases.map((p) =>
-        p.id === purchaseId ? { ...p, reviewed: true } : p
-      ),
-    }));
+    const updatedReviews = [...reviews, newReview];
+    const updatedPurchases = purchases.map((p) =>
+      p.id === purchaseId ? { ...p, reviewed: true } : p
+    );
+
+    saveGlobalData('bygame_reviews', updatedReviews);
+    saveGlobalData('bygame_purchases', updatedPurchases);
+
+    set({
+      reviews: updatedReviews,
+      purchases: updatedPurchases,
+    });
 
     // Add 100 IDR bonus balance
     get().addBalance(100);
@@ -424,7 +568,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // ---- MESSAGES ----
-  messages: [],
+  messages: initialLoggedIn ? initialMessages : [],
 
   addMessage: (message) => {
     const newMessage: Message = {
@@ -433,17 +577,21 @@ export const useStore = create<AppState>((set, get) => ({
       isRead: false,
       createdAt: new Date().toISOString(),
     };
-    set((state) => ({
-      messages: [...state.messages, newMessage],
-    }));
+    set((state) => {
+      const messages = [...state.messages, newMessage];
+      saveGlobalData('bygame_messages', messages);
+      return { messages };
+    });
   },
 
   markMessageRead: (messageId) => {
-    set((state) => ({
-      messages: state.messages.map((m) =>
+    set((state) => {
+      const messages = state.messages.map((m) =>
         m.id === messageId ? { ...m, isRead: true } : m
-      ),
-    }));
+      );
+      saveGlobalData('bygame_messages', messages);
+      return { messages };
+    });
   },
 
   getUserMessages: () => {
@@ -461,7 +609,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // ---- REDEEM ----
-  redeemRequests: [],
+  redeemRequests: initialLoggedIn ? initialRedeemRequests : [],
 
   addRedeemRequest: (request) => {
     const { user } = get();
@@ -476,10 +624,13 @@ export const useStore = create<AppState>((set, get) => ({
       createdAt: new Date().toISOString(),
     };
 
-    set((state) => ({
-      redeemRequests: [...state.redeemRequests, newRequest],
-      user: { ...state.user!, balance: state.user!.balance - request.itemPrice },
-    }));
+    set((state) => {
+      const redeemRequests = [...state.redeemRequests, newRequest];
+      const updatedUser = { ...state.user!, balance: state.user!.balance - request.itemPrice };
+      saveGlobalData('bygame_redeem_requests', redeemRequests);
+      saveUserData(`bygame_balance_${state.user!.email}`, updatedUser.balance);
+      return { redeemRequests, user: updatedUser };
+    });
 
     return true;
   },
@@ -489,13 +640,15 @@ export const useStore = create<AppState>((set, get) => ({
     const request = redeemRequests.find((r) => r.id === requestId);
     if (!request) return;
 
-    set((state) => ({
-      redeemRequests: state.redeemRequests.map((r) =>
+    set((state) => {
+      const redeemRequests = state.redeemRequests.map((r) =>
         r.id === requestId
-          ? { ...r, status: approved ? 'approved' : 'rejected', adminNote: note }
+          ? { ...r, status: approved ? 'approved' as const : 'rejected' as const, adminNote: note }
           : r
-      ),
-    }));
+      );
+      saveGlobalData('bygame_redeem_requests', redeemRequests);
+      return { redeemRequests };
+    });
 
     get().addMessage({
       userId: request.userId,
@@ -509,11 +662,12 @@ export const useStore = create<AppState>((set, get) => ({
 
     // If rejected, refund balance
     if (!approved) {
-      set((state) => ({
-        user: state.user && state.user.id === request.userId
-          ? { ...state.user, balance: state.user.balance + request.itemPrice }
-          : state.user,
-      }));
+      set((state) => {
+        if (!state.user || state.user.id !== request.userId) return state;
+        const updatedUser = { ...state.user, balance: state.user.balance + request.itemPrice };
+        saveUserData(`bygame_balance_${state.user.email}`, updatedUser.balance);
+        return { user: updatedUser };
+      });
     }
   },
 
@@ -533,9 +687,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (!state.user) return state;
       const newBalance = state.user.balance + amount;
       const updatedUser = { ...state.user, balance: newBalance };
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`bygame_balance_${state.user.email}`, String(newBalance));
-      }
+      saveUserData(`bygame_balance_${state.user.email}`, newBalance);
       return { user: updatedUser };
     });
   },
