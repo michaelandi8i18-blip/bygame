@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Gift, Star, Wallet } from 'lucide-react';
 
 export default function FloatingRedeemBanner() {
@@ -8,19 +8,15 @@ export default function FloatingRedeemBanner() {
   const [isDismissed, setIsDismissed] = useState(false);
 
   useEffect(() => {
-    // Show banner after 1.5s delay on first visit
-    const dismissed = sessionStorage.getItem('redeem-banner-dismissed');
-    if (!dismissed) {
-      const timer = setTimeout(() => setIsVisible(true), 1500);
-      return () => clearTimeout(timer);
-    }
+    // Always show banner after 1.5s delay on every page visit
+    const timer = setTimeout(() => setIsVisible(true), 1500);
+    return () => clearTimeout(timer);
   }, []);
 
-  const handleDismiss = () => {
+  const handleDismiss = useCallback(() => {
     setIsVisible(false);
     setTimeout(() => setIsDismissed(true), 400);
-    sessionStorage.setItem('redeem-banner-dismissed', 'true');
-  };
+  }, []);
 
   const handleScrollToRedeem = () => {
     const redeemSection = document.getElementById('redeem-section');
