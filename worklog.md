@@ -30,3 +30,62 @@ Stage Summary:
 - SEO-optimized metadata with Indonesian keywords
 - API routes ready for Midtrans/Xendit payment gateway integration
 - All lint checks pass
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Add Login, Purchase History, Messages, Redeem, Review, Admin Panel, Testimonials
+
+Work Log:
+- Created Zustand store (src/store/useStore.ts) with full state management:
+  - User authentication (login/register/logout with role-based access)
+  - Purchases with auto status progression (pending → processing → success)
+  - Reviews with 1-5 star rating and balance bonus (Rp 100 per review)
+  - Messages system (admin and system messages with read status)
+  - Redeem requests with admin approval flow
+  - Balance management with localStorage persistence
+  - Seed data for demo purposes
+- Created LoginModal.tsx - Login/Register form with role-based access (admin via email containing 'admin')
+- Created HistoryPage.tsx - Full-screen purchase history page:
+  - Expandable purchase cards with details (ID, game, payment, status)
+  - Real-time status progression animation
+  - Review form with star rating (1-5) and comment
+  - Balance display and review bonus notification
+- Created MessagePanel.tsx - Message inbox:
+  - Admin and system messages with type-based styling
+  - Unread count badge
+  - Mark all as read
+  - Message metadata (from, date, type)
+- Created RedeemSection.tsx - Redeem menu on main page:
+  - Search and select game/item from catalog
+  - Input game ID and email for admin contact
+  - Balance check and deduction
+  - Redeem history with status tracking
+- Created TestimonialSection.tsx - Testimonials carousel:
+  - Auto-populated from user reviews
+  - Responsive carousel (3 cards desktop, 1 mobile)
+  - Star ratings and user info display
+  - Seed reviews for demo
+- Created AdminPanel.tsx - Admin management page:
+  - Stats dashboard (total requests, pending, completed)
+  - Redeem request cards with approve/reject actions
+  - Admin notes on each decision
+  - Auto-send messages to users on approve/reject
+  - Saldo refund on rejection
+- Updated Header.tsx - Added login, history, messages, admin, redeem navigation
+- Updated TopupModal.tsx - Integrated with store (saves purchases for logged-in users)
+- Updated page.tsx - Integrated all new components and modals
+- Created API routes: /api/redeem, /api/review, /api/messages, /api/admin
+- All lint checks pass
+
+Stage Summary:
+- Complete user authentication system with login/register
+- Purchase history page with expandable details and real-time status updates
+- Review system (1-5 stars + comment) with Rp 100 balance bonus per review
+- Message system for admin-to-user notifications
+- Redeem menu for exchanging balance bonus for game items
+- Admin panel for manual approval of redeem requests
+- Testimonial section auto-populated from user reviews
+- All features integrated into single-page architecture with modals
+- Role-based access (user/admin) via login email
+- All lint checks pass

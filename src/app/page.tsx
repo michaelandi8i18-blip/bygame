@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import GameSearch from '@/components/GameSearch';
@@ -9,10 +9,20 @@ import GameGrid from '@/components/GameGrid';
 import PromoBanner from '@/components/PromoBanner';
 import FeatureSection from '@/components/FeatureSection';
 import TopupModal from '@/components/TopupModal';
+import TestimonialSection from '@/components/TestimonialSection';
+import RedeemSection from '@/components/RedeemSection';
 import Footer from '@/components/Footer';
 import FloatingDecorations from '@/components/FloatingDecorations';
+import LoginModal from '@/components/LoginModal';
+import HistoryPage from '@/components/HistoryPage';
+import MessagePanel from '@/components/MessagePanel';
+import AdminPanel from '@/components/AdminPanel';
 import { games } from '@/data/games';
 import { Game, Category } from '@/types';
+
+// We need to import the store types - but the actual store is from '@/store/useStore'
+// The 'useStore' re-export from types is just for type compatibility
+import { useStore as useZustandStore } from '@/store/useStore';
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,18 +30,20 @@ export default function Home() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isTopupOpen, setIsTopupOpen] = useState(false);
-  const [cartCount] = useState(0);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isMessagesOpen, setIsMessagesOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const redeemRef = useRef<HTMLDivElement>(null);
+
+  const { isLoggedIn, purchases, user } = useZustandStore();
 
   // Filter games based on search and category
   const filteredGames = useMemo(() => {
     let result = games;
-
-    // Filter by category
     if (activeCategory !== 'all') {
       result = result.filter((game) => game.category === activeCategory);
     }
-
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       result = result.filter(
@@ -41,9 +53,10 @@ export default function Home() {
           game.description.toLowerCase().includes(query)
       );
     }
-
     return result;
   }, [searchQuery, activeCategory]);
+
+  const userPurchaseCount = user ? purchases.filter((p) => p.userId === user.id).length : 0;
 
   const handleTopUp = (game: Game) => {
     setSelectedGame(game);
@@ -54,6 +67,10 @@ export default function Home() {
     setSearchQuery(query);
   };
 
+  const scrollToRedeem = () => {
+    redeemRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen bg-[#FFF1F5]">
       {/* Floating decorations */}
@@ -62,7 +79,12 @@ export default function Home() {
       {/* Header */}
       <Header
         onSearchOpen={() => setIsSearchOpen(true)}
-        cartCount={cartCount}
+        cartCount={userPurchaseCount}
+        onOpenHistory={() => setIsHistoryOpen(true)}
+        onOpenMessages={() => setIsMessagesOpen(true)}
+        onOpenLogin={() => setIsLoginOpen(true)}
+        onOpenAdmin={() => setIsAdminOpen(true)}
+        onOpenRedeem={scrollToRedeem}
       />
 
       {/* Search overlay */}
@@ -133,33 +155,50 @@ export default function Home() {
         {/* Feature Section */}
         <FeatureSection />
 
+        {/* Testimonials */}
+        <div id="testimonials">
+          <TestimonialSection />
+        </div>
+
+        {/* Redeem Section */}
+        <div ref={redeemRef}>
+          <RedeemSection />
+        </div>
+
         {/* CTA Section */}
         <section className="py-16 sm:py-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="relative bg-gradient-to-br from-pink-400 via-rose-400 to-purple-500 rounded-3xl p-8 sm:p-12 text-center text-white overflow-hidden">
-              {/* Decorative */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <span className="absolute top-4 left-[10%] text-2xl animate-float opacity-50">⭐</span>
                 <span className="absolute top-8 right-[15%] text-xl animate-float [animation-delay:0.5s] opacity-40">💕</span>
                 <span className="absolute bottom-8 left-[20%] text-xl animate-float [animation-delay:1s] opacity-40">🎮</span>
                 <span className="absolute bottom-4 right-[30%] text-2xl animate-twinkle opacity-30">✨</span>
               </div>
-
               <div className="relative z-10">
                 <span className="text-4xl sm:text-5xl mb-4 block">🎮</span>
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black mb-4">
                   Siap Top Up?
                 </h2>
-                <p className="text-white/90 text-base sm:text-lg max-w-lg mx-auto mb-8 font-medium">
+                <p className="text-white/90 text-base sm:text-lg max-w-lg mx-auto mb-4 font-medium">
                   Bergabung dengan jutaan gamer Indonesia dan nikmati pengalaman top up tercepat dan termurah!
                 </p>
+                {!isLoggedIn && (
+                  <p className="text-white/70 text-sm mb-6">
+                    Login sekarang untuk menyimpan riwayat pembelian & dapatkan saldo bonus review!
+                  </p>
+                )}
                 <button
                   onClick={() => {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    if (!isLoggedIn) {
+                      setIsLoginOpen(true);
+                    } else {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
                   }}
                   className="inline-flex items-center gap-2 px-8 py-4 bg-white text-pink-600 font-bold text-lg rounded-full shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 animate-bounce-slow"
                 >
-                  <span>Mulai Sekarang</span>
+                  <span>{isLoggedIn ? 'Mulai Top Up' : 'Daftar & Mulai'}</span>
                   <span>🚀</span>
                 </button>
               </div>
@@ -171,12 +210,18 @@ export default function Home() {
       {/* Footer */}
       <Footer />
 
-      {/* Topup Modal */}
+      {/* Modals & Pages */}
+      <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
+
       <TopupModal
         game={selectedGame}
         isOpen={isTopupOpen}
         onClose={() => setIsTopupOpen(false)}
       />
+
+      <HistoryPage isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
+      <MessagePanel isOpen={isMessagesOpen} onClose={() => setIsMessagesOpen(false)} />
+      <AdminPanel isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
     </div>
   );
 }
