@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X, Mail, Lock, User, Sparkles, Loader2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -81,7 +81,13 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setIsGoogleLoading(true);
 
     try {
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      const sb = getSupabase();
+      if (!sb) {
+        setError('Login Google belum tersedia. Hubungi admin.');
+        setIsGoogleLoading(false);
+        return;
+      }
+      const { data, error: oauthError } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: typeof window !== 'undefined' ? window.location.origin + '/' : 'https://www.bygame.store/',

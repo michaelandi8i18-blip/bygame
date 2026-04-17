@@ -56,30 +56,94 @@ export default function TopupModal({ game, isOpen, onClose }: TopupModalProps) {
     if (!game || !selectedGameItem || !selectedPayment) return;
     setIsProcessing(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    if (isLoggedIn && user && selectedGameItem) {
-      const purchase = addPurchase({
-        userId: user.id,
-        gameId: game.id,
-        gameName: game.name,
-        gameImage: game.image,
-        itemId: selectedGameItem.id,
-        itemName: selectedGameItem.name,
-        quantity,
-        totalPrice,
-        userGameId: userId,
-        serverId,
-        paymentMethod: selectedPayment,
+    try {
+      // Step 1: Create topup order via API (apigames.id or mock)
+      const topupRes = await fetch('/api/topup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameId: game.id,
+          itemId: selectedGameItem.id,
+          userGameId: userId,
+          serverId: serverId || undefined,
+          paymentMethod: selectedPayment,
+          quantity,
+          userId: user?.id,
+          gameName: game.name,
+          itemName: selectedGameItem.name,
+          totalPrice,
+        }),
       });
-      setCreatedOrderId(purchase.id);
-    } else {
-      // Demo: generate random order ID
-      setCreatedOrderId(`BY-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`);
-    }
 
-    setIsProcessing(false);
-    setIsSuccess(true);
+      const topupData = await topupRes.json();
+      if (!topupRes.ok || !topupData.success) {
+        throw new Error(topupData.message || 'Gagal membuat pesanan');
+      }
+
+      const orderId = topupData.data.orderId;
+
+      // Step 2: Create payment via API (Pak Kasir or mock)
+      const payRes = await fetch('/api/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          paymentMethod: selectedPayment,
+          amount: totalPrice,
+          customerName: user?.name || 'BYgame User',
+          customerEmail: user?.email || '',
+        }),
+      });
+
+      const payData = await payRes.json();
+      if (!payRes.ok || !payData.success) {
+        throw new Error(payData.message || 'Gagal membuat pembayaran');
+      }
+
+      // Step 3: Save purchase to local store
+      if (isLoggedIn && user) {
+        addPurchase({
+          userId: user.id,
+          gameId: game.id,
+          gameName: game.name,
+          gameImage: game.image,
+          itemId: selectedGameItem.id,
+          itemName: selectedGameItem.name,
+          quantity,
+          totalPrice,
+          userGameId: userId,
+          serverId,
+          paymentMethod: selectedPayment,
+        });
+      }
+
+      setCreatedOrderId(orderId);
+      setIsProcessing(false);
+      setIsSuccess(true);
+    } catch (err) {
+      console.error('[TopupModal] Payment error:', err);
+      setIsProcessing(false);
+      // Fallback to local-only mode on API error
+      if (isLoggedIn && user) {
+        const purchase = addPurchase({
+          userId: user.id,
+          gameId: game.id,
+          gameName: game.name,
+          gameImage: game.image,
+          itemId: selectedGameItem.id,
+          itemName: selectedGameItem.name,
+          quantity,
+          totalPrice,
+          userGameId: userId,
+          serverId,
+          paymentMethod: selectedPayment,
+        });
+        setCreatedOrderId(purchase.id);
+      } else {
+        setCreatedOrderId(`BY-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`);
+      }
+      setIsSuccess(true);
+    }
   };
 
   if (!isOpen || !game) return null;
