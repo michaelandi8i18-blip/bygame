@@ -14,6 +14,7 @@ const GAME_ID_MAP: Record<string, string> = {
   'genshin-pc': 'genshinimpact',
   'honkai-star-rail': 'honkaistarrail',
   'codm': 'codmobile',
+  'blood-strike': 'bloodstrike',
   'coc': 'clashofclans',
   'clash-royale': 'clashroyale',
   'valorant': 'valorant',
