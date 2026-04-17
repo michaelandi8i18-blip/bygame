@@ -3,11 +3,8 @@
 import { useState } from 'react';
 import { X, Mail, Lock, User, Sparkles, Loader2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-<<<<<<< HEAD
 import { getSupabase } from '@/lib/supabaseClient';
-=======
 import { supabase } from '@/lib/supabaseClient';
->>>>>>> 96621f0d52d0fac0f0da53121f3b7f67de9f0348
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -85,17 +82,15 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setIsGoogleLoading(true);
 
     try {
-<<<<<<< HEAD
+
       const sb = getSupabase();
       if (!sb) {
         setError('Login Google belum tersedia. Hubungi admin.');
         setIsGoogleLoading(false);
         return;
       }
-      const { data, error: oauthError } = await sb.auth.signInWithOAuth({
-=======
+      const { data, error: oauthError } = await sb.auth.signInWithOAuth{
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
->>>>>>> 96621f0d52d0fac0f0da53121f3b7f67de9f0348
         provider: 'google',
         options: {
           redirectTo: typeof window !== 'undefined' ? window.location.origin + '/' : 'https://www.bygame.store/',
@@ -123,7 +118,6 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   return (
     <div className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
-        {/* Header */}
         <div className="bg-gradient-to-r from-pink-400 to-rose-500 p-6 text-white text-center relative">
           <button
             onClick={onClose}
