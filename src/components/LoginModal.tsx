@@ -89,13 +89,14 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         setIsGoogleLoading(false);
         return;
       }
-      const { data, error: oauthError } = await sb.auth.signInWithOAuth{
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: typeof window !== 'undefined' ? window.location.origin + '/' : 'https://www.bygame.store/',
-        },
-      });
+      const { data, error: oauthError } = await sb.auth.signInWithOAuth({
+  provider: 'google',
+  options: {
+    redirectTo: typeof window !== 'undefined'
+      ? window.location.origin + '/'
+      : 'https://www.bygame.store/',
+  },
+});
 
       if (oauthError) {
         setError('Gagal login dengan Google. Coba lagi nanti.');
