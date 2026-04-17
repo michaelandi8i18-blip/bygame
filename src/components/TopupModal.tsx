@@ -99,9 +99,6 @@ export default function TopupModal({ game, isOpen, onClose }: TopupModalProps) {
       if (data.success) {
         setCheckedUserName(data.data.userName);
         setCheckLabels(data.labels || checkLabels);
-        if (data.data.isMock) {
-          setCheckUserError('Mode demo — nama user ditampilkan secara acak');
-        }
       } else {
         setCheckUserError(data.message || 'Gagal mengecek ID. Pastikan ID sudah benar.');
       }
@@ -474,6 +471,13 @@ export default function TopupModal({ game, isOpen, onClose }: TopupModalProps) {
                       💡 Login untuk menyimpan pesanan ke riwayat pembelian dan mendapatkan saldo bonus review!
                     </div>
                   )}
+
+                  {/* Warning if not verified yet */}
+                  {userId.trim() && !checkedUserName && !isCheckingUser && !checkUserError && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 font-medium">
+                      ⚠️ Klik <b>Cek Nama</b> terlebih dahulu untuk memverifikasi ID game kamu sebelum lanjut pembayaran.
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -544,10 +548,10 @@ export default function TopupModal({ game, isOpen, onClose }: TopupModalProps) {
             {step < 3 ? (
               <button
                 onClick={handleNext}
-                disabled={(step === 1 && !selectedItem) || (step === 2 && !userId.trim())}
+                disabled={(step === 1 && !selectedItem) || (step === 2 && (!userId.trim() || !checkedUserName))}
                 className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-sm shadow-lg shadow-pink-300/30 hover:from-pink-600 hover:to-rose-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
-                Lanjut<ChevronRight className="w-4 h-4" />
+                {step === 2 && !checkedUserName ? 'Cek Nama Dulu' : 'Lanjut'}<ChevronRight className="w-4 h-4" />
               </button>
             ) : (
               <button

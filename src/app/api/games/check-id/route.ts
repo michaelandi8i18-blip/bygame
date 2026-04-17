@@ -112,63 +112,12 @@ export async function GET(request: NextRequest) {
     // Return game-specific labels
     const gameLabel = GAME_LABELS[gameId] || null;
 
-    // If apigames not configured, return mock response
+    // If apigames not configured, return error — no mock
     if (!APIGAMES_MERCHANT || !APIGAMES_KEY || !APIGAMES_SECRET) {
-      console.log('[BYgame] apigames.id not configured, using mock user check');
-
-      const mockNames: Record<string, string> = {
-        'mlbb': 'EVOS•Legend',
-        'freefire': 'DEADSHOT•PRO',
-        'pubgm': 'TDM_King99',
-        'genshin-mobile': 'Traveler Lumine',
-        'genshin-pc': 'Traveler Aether',
-        'honkai-star-rail': 'Stelle★Astral',
-        'codm': 'GhostRecon_X',
-        'blood-strike': 'BloodHunter_X',
-        'valorant': 'JettOneTap',
-        'valorant-mobile': 'JettOneTap',
-        'lol': 'Faker Fanboy',
-        'roblox-mobile': 'xX_ProGamer_Xx',
-        'roblox-console': 'xX_ProGamer_Xx',
-        'steam-wallet': 'SteamPlayer123',
-        'fortnite-pc': 'TTV_Builder',
-        'fortnite-console': 'TTV_Builder',
-        'apex': 'PathfinderMain',
-        'coc': 'ClashKing888',
-        'clash-royale': 'RoyaleChamp',
-        'hayday': 'FarmMaster',
-        'stumble-guys': 'StumbleKing',
-        'aov': 'AOVWarrior',
-        'rise-of-kingdoms': 'Caesar_Rome',
-        'ragnarok-m': 'Knight_Loki',
-        'dragon-city': 'DragonMaster',
-        'eight-ball-pool': 'PoolShark',
-        'among-us': 'Sus_Crewmate',
-        'dota2': 'DotaLegend',
-        'cs2': 'AWP_God',
-        'bdo': 'BDO_Warrior',
-        'lost-ark': 'LostArkHero',
-        'wow': 'WoW_Legend',
-        'fifa-online': 'FIFA_Champion',
-        'point-blank': 'PB_Sniper',
-        'crossfire': 'CF_Commando',
-      };
-
-      const mockName = mockNames[gameId] || `Player_${userGameId}`;
-
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 800 + Math.random() * 1200));
-
+      console.log('[BYgame] apigames.id not configured');
       return NextResponse.json({
-        success: true,
-        data: {
-          userName: mockName,
-          userGameId,
-          serverId: serverId || null,
-          gameCode: GAME_CHECK_MAP[gameId] || gameId,
-          isMock: true,
-          message: 'Mock mode — API belum dikonfigurasi',
-        },
+        success: false,
+        message: 'Layanan pengecekan ID belum tersedia. Hubungi admin.',
         labels: gameLabel,
       });
     }
