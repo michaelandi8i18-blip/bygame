@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Game, PaymentMethod } from '@/types';
-import { X, Minus, Plus, ChevronRight, ChevronLeft, Check, Loader2 } from 'lucide-react';
+import { X, Minus, Plus, ChevronRight, ChevronLeft, Check, Loader2, Search, ShieldCheck, AlertCircle } from 'lucide-react';
 import { paymentMethods } from '@/data/games';
 import { useStore } from '@/store/useStore';
 
@@ -24,8 +24,28 @@ export default function TopupModal({ game, isOpen, onClose }: TopupModalProps) {
   const [isSuccess, setIsSuccess] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState('');
 
+  // Cek Nama User states
+  const [isCheckingUser, setIsCheckingUser] = useState(false);
+  const [checkedUserName, setCheckedUserName] = useState<string | null>(null);
+  const [checkUserError, setCheckUserError] = useState<string | null>(null);
+  const [checkLabels, setCheckLabels] = useState<{ idLabel: string; serverLabel: string; needServer: boolean; hint: string } | null>(null);
+
   const selectedGameItem = game?.items.find((item) => item.id === selectedItem);
   const totalPrice = selectedGameItem ? selectedGameItem.price * quantity : 0;
+
+  // Fetch game-specific labels when modal opens or game changes
+  const fetchGameLabels = useCallback(async () => {
+    if (!game) return;
+    try {
+      const res = await fetch(`/api/games/check-id?gameId=${game.id}&userGameId=_label_only`);
+      const data = await res.json();
+      if (data.labels) {
+        setCheckLabels(data.labels);
+      }
+    } catch {
+      // silent fail, labels are optional
+    }
+  }, [game]);
 
   const handleClose = () => {
     setStep(1);
@@ -37,7 +57,59 @@ export default function TopupModal({ game, isOpen, onClose }: TopupModalProps) {
     setIsProcessing(false);
     setIsSuccess(false);
     setCreatedOrderId('');
+    setIsCheckingUser(false);
+    setCheckedUserName(null);
+    setCheckUserError(null);
+    setCheckLabels(null);
     onClose();
+  };
+
+  // Reset check state when user ID or server ID changes
+  const handleUserIdChange = (value: string) => {
+    setUserId(value);
+    setCheckedUserName(null);
+    setCheckUserError(null);
+  };
+
+  const handleServerIdChange = (value: string) => {
+    setServerId(value);
+    setCheckedUserName(null);
+    setCheckUserError(null);
+  };
+
+  // Cek nama user game via API
+  const handleCheckUserName = async () => {
+    if (!game || !userId.trim()) return;
+    setIsCheckingUser(true);
+    setCheckedUserName(null);
+    setCheckUserError(null);
+
+    try {
+      const params = new URLSearchParams({
+        gameId: game.id,
+        userGameId: userId.trim(),
+      });
+      if (serverId.trim()) {
+        params.set('serverId', serverId.trim());
+      }
+
+      const res = await fetch(`/api/games/check-id?${params.toString()}`);
+      const data = await res.json();
+
+      if (data.success) {
+        setCheckedUserName(data.data.userName);
+        setCheckLabels(data.labels || checkLabels);
+        if (data.data.isMock) {
+          setCheckUserError('Mode demo — nama user ditampilkan secara acak');
+        }
+      } else {
+        setCheckUserError(data.message || 'Gagal mengecek ID. Pastikan ID sudah benar.');
+      }
+    } catch {
+      setCheckUserError('Gagal terhubung ke server. Coba lagi nanti.');
+    } finally {
+      setIsCheckingUser(false);
+    }
   };
 
   const handleNext = () => {
@@ -45,6 +117,11 @@ export default function TopupModal({ game, isOpen, onClose }: TopupModalProps) {
       setStep(step + 1);
     }
   };
+
+  // Fetch labels when game opens
+  if (isOpen && game && !checkLabels && step === 2) {
+    fetchGameLabels();
+  }
 
   const handleBack = () => {
     if (step > 1) {
@@ -273,41 +350,116 @@ export default function TopupModal({ game, isOpen, onClose }: TopupModalProps) {
                 </div>
               )}
 
-              {/* Step 2: Enter user ID */}
+              {/* Step 2: Enter user ID + Cek Nama */}
               {step === 2 && (
                 <div className="animate-slide-up space-y-4">
                   <h3 className="font-bold text-pink-800">Detail Akun</h3>
                   <div>
                     <label className="block text-sm font-semibold text-pink-700 mb-1.5">
-                      User ID <span className="text-red-400">*</span>
+                      {checkLabels?.idLabel || 'User ID'} <span className="text-red-400">*</span>
                     </label>
-                    <input
-                      type="text"
-                      value={userId}
-                      onChange={(e) => setUserId(e.target.value)}
-                      placeholder="Masukkan User ID kamu"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-pink-200 bg-white text-pink-900 placeholder:text-pink-300 focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-200 transition-all font-medium"
-                    />
-                    <p className="text-xs text-pink-400 mt-1">Contoh: 1234567890 (10 digit)</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={userId}
+                        onChange={(e) => handleUserIdChange(e.target.value)}
+                        placeholder={checkLabels?.hint || 'Masukkan User ID kamu'}
+                        className="flex-1 px-4 py-3 rounded-xl border-2 border-pink-200 bg-white text-pink-900 placeholder:text-pink-300 focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-200 transition-all font-medium"
+                      />
+                      <button
+                        onClick={handleCheckUserName}
+                        disabled={!userId.trim() || isCheckingUser}
+                        className="px-4 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold text-sm flex items-center gap-2 hover:from-purple-600 hover:to-pink-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-purple-200/40 active:scale-95 whitespace-nowrap"
+                      >
+                        {isCheckingUser ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" />Cek...</>
+                        ) : (
+                          <><Search className="w-4 h-4" />Cek Nama</>
+                        )}
+                      </button>
+                    </div>
+                    {checkLabels?.hint && (
+                      <p className="text-xs text-pink-400 mt-1">{checkLabels.hint}</p>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-pink-700 mb-1.5">
-                      Server ID <span className="text-pink-400 font-normal">(opsional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={serverId}
-                      onChange={(e) => setServerId(e.target.value)}
-                      placeholder="Masukkan Server ID"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-pink-200 bg-white text-pink-900 placeholder:text-pink-300 focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-200 transition-all font-medium"
-                    />
-                  </div>
+
+                  {/* Server ID — show only if game needs it, or always show for games with server */}
+                  {(checkLabels?.needServer || game?.id === 'mlbb' || game?.id === 'lol') ? (
+                    <div>
+                      <label className="block text-sm font-semibold text-pink-700 mb-1.5">
+                        {checkLabels?.serverLabel || 'Server ID'} <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={serverId}
+                        onChange={(e) => handleServerIdChange(e.target.value)}
+                        placeholder={`Masukkan ${checkLabels?.serverLabel || 'Server ID'}`}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-pink-200 bg-white text-pink-900 placeholder:text-pink-300 focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-200 transition-all font-medium"
+                      />
+                      <p className="text-xs text-pink-400 mt-1">Server ID biasanya terpisah dari User ID</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-semibold text-pink-700 mb-1.5">
+                        Server ID <span className="text-pink-400 font-normal">(opsional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={serverId}
+                        onChange={(e) => handleServerIdChange(e.target.value)}
+                        placeholder="Masukkan Server ID (jika ada)"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-pink-200 bg-white text-pink-900 placeholder:text-pink-300 focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-200 transition-all font-medium"
+                      />
+                    </div>
+                  )}
+
+                  {/* Cek Nama Result */}
+                  {checkedUserName && (
+                    <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl animate-slide-up">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ShieldCheck className="w-5 h-5 text-green-500 flex-shrink-0" />
+                        <span className="font-bold text-green-700 text-sm">ID Terverifikasi</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-lg flex-shrink-0">
+                          {game?.image}
+                        </div>
+                        <div>
+                          <p className="font-extrabold text-green-800">{checkedUserName}</p>
+                          <p className="text-xs text-green-600">
+                            {checkLabels?.idLabel || 'User ID'}: {userId}
+                            {serverId && ` | ${checkLabels?.serverLabel || 'Server'}: ${serverId}`}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-green-500 mt-2">Nama karakter sudah sesuai? Lanjut ke pembayaran</p>
+                    </div>
+                  )}
+
+                  {/* Cek Nama Error */}
+                  {checkUserError && !checkedUserName && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
+                      <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-amber-700 text-sm">Perhatian</p>
+                        <p className="text-xs text-amber-600">{checkUserError}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ringkasan Pesanan */}
                   <div className="p-4 bg-pink-50 rounded-xl space-y-2">
                     <p className="font-bold text-pink-800 mb-2">Ringkasan Pesanan</p>
                     <div className="flex justify-between text-sm">
                       <span className="text-pink-500">Game</span>
                       <span className="font-semibold text-pink-700">{game.name}</span>
                     </div>
+                    {checkedUserName && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-pink-500">Nama</span>
+                        <span className="font-semibold text-green-700">{checkedUserName}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm">
                       <span className="text-pink-500">Item</span>
                       <span className="font-semibold text-pink-700">{selectedGameItem?.name} x{quantity}</span>
@@ -346,15 +498,30 @@ export default function TopupModal({ game, isOpen, onClose }: TopupModalProps) {
                       </button>
                     ))}
                   </div>
-                  <div className="p-4 bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl">
+                  <div className="p-4 bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl space-y-2">
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-pink-500">Item</span>
                       <span className="font-semibold text-pink-700">{selectedGameItem?.name} x{quantity}</span>
                     </div>
+                    {checkedUserName && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-pink-500">Nama Karakter</span>
+                        <span className="font-semibold text-green-700 flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
+                          {checkedUserName}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm mb-2">
-                      <span className="text-pink-500">User ID</span>
+                      <span className="text-pink-500">{checkLabels?.idLabel || 'User ID'}</span>
                       <span className="font-semibold text-pink-700">{userId}</span>
                     </div>
+                    {serverId && (
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-pink-500">{checkLabels?.serverLabel || 'Server ID'}</span>
+                        <span className="font-semibold text-pink-700">{serverId}</span>
+                      </div>
+                    )}
                     <div className="border-t border-pink-200 pt-2 flex justify-between items-center">
                       <span className="font-bold text-pink-700">Total Bayar</span>
                       <span className="text-xl font-black text-pink-600">{fmt(totalPrice)}</span>
